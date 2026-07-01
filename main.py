@@ -11,10 +11,10 @@ ctk.set_default_color_theme("blue")
 
 FORMAT_OPTIONS = {
     "Best Quality (MP4)": "best[ext=mp4]/best[ext=webm]/best",
-    "720p (MP4)":         "best[height<=720][ext=mp4]/best[height<=720]/best",
-    "480p (MP4)":         "best[height<=480][ext=mp4]/best[height<=480]/best",
-    "360p (MP4)":         "best[height<=360][ext=mp4]/best[height<=360]/best",
-    "Audio Only":         "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio",
+    "720p (MP4)":"best[height<=720][ext=mp4]/best[height<=720]/best",
+    "480p (MP4)":"best[height<=480][ext=mp4]/best[height<=480]/best",
+    "360p (MP4)":"best[height<=360][ext=mp4]/best[height<=360]/best",
+    "Audio Only":"bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio",
 }
 
 BG        = "#f5f6fa"
