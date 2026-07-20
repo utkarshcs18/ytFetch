@@ -305,6 +305,7 @@ class YTDownloader(ctk.CTk):
         self.btn_download.pack(fill="x")
 
 
+
 if __name__ == "__main__":
     app = YTDownloader()
     app.mainloop()
