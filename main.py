@@ -1,182 +1,214 @@
 import os
-import sys
 import traceback
 import threading
 from pathlib import Path
 
 import customtkinter as ctk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog
 import yt_dlp
 
-ctk.set_appearance_mode("dark")
+ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("blue")
 
 FORMAT_OPTIONS = {
-    "Best Quality (MP4)":  "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-    "720p (MP4)":          "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best[height<=720]",
-    "480p (MP4)":          "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480][ext=mp4]/best[height<=480]",
-    "360p (MP4)":          "bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[height<=360][ext=mp4]/best[height<=360]",
-    "Audio Only (MP3)":    "bestaudio/best",
+    "Best Quality (MP4)": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+    "720p (MP4)":         "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best[height<=720]",
+    "480p (MP4)":         "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480][ext=mp4]/best[height<=480]",
+    "360p (MP4)":         "bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[height<=360][ext=mp4]/best[height<=360]",
+    "Audio Only (MP3)":   "bestaudio/best",
 }
+BG          = "#f5f6fa"       
+CARD        = "#ffffff"       
+HEADER_BG   = "#ffffff"       
+BORDER      = "#d8dae5"       
+TEXT_MAIN   = "#1a1a2e"       
+TEXT_SUB    = "#6b7280"       
+TEXT_HINT   = "#9ca3af"      
+ENTRY_BG    = "#f9fafb"
+BTN_PRIM    = "#2563eb"
+BTN_PRIM_HV = "#1d4ed8"  
+BTN_SEC     = "#e5e7eb"
+BTN_SEC_HV  = "#d1d5db"
+BTN_STOP    = "#dc2626"
+BTN_STOP_HV = "#b91c1c"
+BTN_CLOSE   = "#16a34a"
+BTN_CLOSE_HV= "#15803d"
+PROG_FG     = "#2563eb"       
+PROG_BG     = "#e5e7eb"       
+OK_COLOR    = "#16a34a"
+WARN_COLOR  = "#d97706"
+ERR_COLOR   = "#dc2626"
+INFO_COLOR  = "#2563eb"
+
 
 class YTDownloader(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("ytFetch  ·  YouTube Downloader")
-        self.geometry("680x520")
+        self.geometry("680x560")
         self.resizable(False, False)
-        self.configure(fg_color="#0f0f13")
+        self.configure(fg_color=BG)
 
-        self._build_ui()
         self.folder_path: Path | None = None
         self._download_thread: threading.Thread | None = None
+        self._stop_event = threading.Event()
+
+        self._build_ui()
 
     def _build_ui(self):
-        header = ctk.CTkFrame(self, fg_color="#1a1a24", corner_radius=0, height=64)
+        header = ctk.CTkFrame(self, fg_color=HEADER_BG, corner_radius=0, height=62,
+                               border_width=1, border_color=BORDER)
         header.pack(fill="x")
-        ctk.CTkLabel(
-            header,
-            text="▶  ytFetch",
-            font=ctk.CTkFont(family="Segoe UI", size=22, weight="bold"),
-            text_color="#4fc3f7",
-        ).pack(side="left", padx=24, pady=12)
-        ctk.CTkLabel(
-            header,
-            text="YouTube Downloader",
-            font=ctk.CTkFont(family="Segoe UI", size=13),
-            text_color="#7a7a9a",
-        ).pack(side="left", pady=12)
-
-        card = ctk.CTkFrame(self, fg_color="#1e1e2e", corner_radius=18)
-        card.pack(fill="both", expand=True, padx=24, pady=20)
+        header.pack_propagate(False)
 
         ctk.CTkLabel(
-            card, text="YouTube URL",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color="#8888aa",
-        ).pack(anchor="w", padx=20, pady=(20, 2))
+            header, text="ytFetch",
+            font=ctk.CTkFont("Segoe UI", 22, "bold"),
+            text_color=BTN_PRIM,
+        ).pack(side="left", padx=22, pady=0)
+        ctk.CTkLabel(
+            header, text="YouTube Downloader",
+            font=ctk.CTkFont("Segoe UI", 13),
+            text_color=TEXT_SUB,
+        ).pack(side="left")
 
-        url_row = ctk.CTkFrame(card, fg_color="transparent")
-        url_row.pack(fill="x", padx=20, pady=(0, 12))
+        card = ctk.CTkFrame(self, fg_color=CARD, corner_radius=14,
+                             border_width=1, border_color=BORDER)
+        card.pack(fill="both", expand=True, padx=24, pady=18)
 
+        def section_label(parent, text):
+            ctk.CTkLabel(parent, text=text,
+                         font=ctk.CTkFont("Segoe UI", 11, "bold"),
+                         text_color=TEXT_SUB,
+                         ).pack(anchor="w", padx=20, pady=(16, 3))
+
+        section_label(card, "YouTube URL")
         self.url_entry = ctk.CTkEntry(
-            url_row,
-            placeholder_text="Paste YouTube link here…",
-            height=42,
-            corner_radius=10,
-            border_color="#3a3a5c",
-            fg_color="#12121c",
-            text_color="#e0e0f0",
-            font=ctk.CTkFont(size=13),
+            card,
+            placeholder_text="Paste a YouTube link here…",
+            height=40, corner_radius=8,
+            border_color=BORDER, fg_color=ENTRY_BG,
+            text_color=TEXT_MAIN, placeholder_text_color=TEXT_HINT,
+            font=ctk.CTkFont("Segoe UI", 13),
         )
-        self.url_entry.pack(fill="x")
+        self.url_entry.pack(fill="x", padx=20, pady=(0, 2))
 
-        ctk.CTkLabel(
-            card, text="Quality / Format",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color="#8888aa",
-        ).pack(anchor="w", padx=20, pady=(0, 2))
-
+        section_label(card, "Quality / Format")
         self.quality_var = ctk.StringVar(value="Best Quality (MP4)")
         self.quality_menu = ctk.CTkOptionMenu(
             card,
             values=list(FORMAT_OPTIONS.keys()),
             variable=self.quality_var,
-            height=38,
-            corner_radius=10,
-            fg_color="#12121c",
-            button_color="#2a2a4c",
-            button_hover_color="#3a3a6c",
-            dropdown_fg_color="#1e1e2e",
-            text_color="#e0e0f0",
-            font=ctk.CTkFont(size=13),
+            height=38, corner_radius=8,
+            fg_color=ENTRY_BG,
+            button_color=BTN_SEC, button_hover_color=BTN_SEC_HV,
+            dropdown_fg_color=CARD,
+            text_color=TEXT_MAIN, dropdown_text_color=TEXT_MAIN,
+            font=ctk.CTkFont("Segoe UI", 13),
         )
-        self.quality_menu.pack(fill="x", padx=20, pady=(0, 14))
+        self.quality_menu.pack(fill="x", padx=20, pady=(0, 2))
 
-        ctk.CTkLabel(
-            card, text="Save To",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color="#8888aa",
-        ).pack(anchor="w", padx=20, pady=(0, 2))
-
+        section_label(card, "Save To")
         folder_row = ctk.CTkFrame(card, fg_color="transparent")
         folder_row.pack(fill="x", padx=20, pady=(0, 16))
 
         self.folder_label = ctk.CTkLabel(
-            folder_row,
-            text="No folder selected",
-            text_color="#5a5a7a",
-            font=ctk.CTkFont(size=12),
-            anchor="w",
+            folder_row, text="No folder selected",
+            text_color=TEXT_HINT,
+            font=ctk.CTkFont("Segoe UI", 12), anchor="w",
         )
         self.folder_label.pack(side="left", fill="x", expand=True)
 
         ctk.CTkButton(
-            folder_row,
-            text="Browse…",
-            width=100,
-            height=34,
-            corner_radius=8,
-            fg_color="#2a2a4c",
-            hover_color="#3a3a6c",
+            folder_row, text="Browse…",
+            width=90, height=34, corner_radius=8,
+            fg_color=BTN_SEC, hover_color=BTN_SEC_HV,
+            text_color=TEXT_MAIN,
+            font=ctk.CTkFont("Segoe UI", 12),
             command=self.select_folder,
         ).pack(side="right")
 
         self.progress = ctk.CTkProgressBar(
-            card, height=10, corner_radius=5,
-            progress_color="#4fc3f7",
-            fg_color="#12121c",
+            card, height=8, corner_radius=4,
+            progress_color=PROG_FG, fg_color=PROG_BG,
         )
         self.progress.set(0)
         self.progress.pack(fill="x", padx=20, pady=(0, 6))
 
         self.status_label = ctk.CTkLabel(
             card, text="Ready",
-            font=ctk.CTkFont(size=12),
-            text_color="#6a6a8a",
+            font=ctk.CTkFont("Segoe UI", 12),
+            text_color=TEXT_HINT,
         )
         self.status_label.pack(pady=(0, 12))
 
+        self.btn_row = ctk.CTkFrame(card, fg_color="transparent")
+        self.btn_row.pack(fill="x", padx=20, pady=(0, 18))
+
         self.download_button = ctk.CTkButton(
-            card,
+            self.btn_row,
             text="⬇  Download",
-            height=46,
-            corner_radius=12,
-            font=ctk.CTkFont(size=15, weight="bold"),
-            fg_color="#1565c0",
-            hover_color="#1e88e5",
+            height=44, corner_radius=10,
+            font=ctk.CTkFont("Segoe UI", 14, "bold"),
+            fg_color=BTN_PRIM, hover_color=BTN_PRIM_HV,
+            text_color="#ffffff",
             command=self.start_download,
         )
-        self.download_button.pack(fill="x", padx=20, pady=(0, 20))
+        self.download_button.pack(fill="x")
+
+        self.stop_button = ctk.CTkButton(
+            self.btn_row,
+            text="⏹  Stop Download",
+            height=44, corner_radius=10,
+            font=ctk.CTkFont("Segoe UI", 14, "bold"),
+            fg_color=BTN_STOP, hover_color=BTN_STOP_HV,
+            text_color="#ffffff",
+            command=self.stop_download,
+        )
+
+        self.close_button = ctk.CTkButton(
+            self.btn_row,
+            text="✓  Close",
+            height=44, corner_radius=10,
+            font=ctk.CTkFont("Segoe UI", 14, "bold"),
+            fg_color=BTN_CLOSE, hover_color=BTN_CLOSE_HV,
+            text_color="#ffffff",
+            command=self.destroy,
+        )
 
     def select_folder(self):
         folder = filedialog.askdirectory()
         if folder:
             self.folder_path = Path(folder)
             display = str(self.folder_path)
-            if len(display) > 55:
-                display = "…" + display[-52:]
-            self.folder_label.configure(text=display, text_color="#c0c0e0")
+            if len(display) > 56:
+                display = "…" + display[-53:]
+            self.folder_label.configure(text=display, text_color=TEXT_MAIN)
 
     def start_download(self):
         url = self.url_entry.get().strip()
         if not url:
-            self._set_status("⚠  Please enter a YouTube URL.", "#ffb74d")
+            self._set_status("Please enter a YouTube URL.", WARN_COLOR)
             return
         if not url.startswith("http"):
-            self._set_status("⚠  URL must start with http:// or https://", "#ffb74d")
+            self._set_status("URL must start with http:// or https://", WARN_COLOR)
             return
         if not self.folder_path:
-            self._set_status("⚠  Please select a download folder.", "#ffb74d")
+            self._set_status("Please select a download folder.", WARN_COLOR)
             return
         if not self.folder_path.exists():
-            self._set_status("⚠  Selected folder no longer exists.", "#ffb74d")
+            self._set_status("Selected folder no longer exists.", WARN_COLOR)
             return
 
-        self.download_button.configure(state="disabled")
+        self._stop_event.clear()
+
+        self.download_button.pack_forget()
+        self.close_button.pack_forget()
+        self.stop_button.pack(fill="x")
+
         self.quality_menu.configure(state="disabled")
         self.progress.set(0)
-        self._set_status("Starting download…", "#4fc3f7")
+        self._set_status("Starting…", INFO_COLOR)
 
         self._download_thread = threading.Thread(
             target=self._download_worker,
@@ -184,6 +216,12 @@ class YTDownloader(ctk.CTk):
             daemon=True,
         )
         self._download_thread.start()
+
+    def stop_download(self):
+        """Signal the worker thread to abort."""
+        self._stop_event.set()
+        self._set_status("Stopping…", WARN_COLOR)
+        self.stop_button.configure(state="disabled")
 
     def _download_worker(self, url: str, save_path: Path, quality_label: str):
         fmt = FORMAT_OPTIONS[quality_label]
@@ -204,48 +242,60 @@ class YTDownloader(ctk.CTk):
                 "preferredcodec": "mp3",
                 "preferredquality": "192",
             }]
-           
+
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
                 if info is None:
                     raise ValueError("Could not retrieve video information. Check the URL.")
+                if self._stop_event.is_set():
+                    raise InterruptedError("Cancelled by user.")
                 title = info.get("title", "Video")
-                self._set_status(f"Downloading: {title[:50]}…", "#4fc3f7")
+                self.after(0, lambda t=title: self._set_status(
+                    f"Downloading: {t[:48]}…", INFO_COLOR))
                 ydl.download([url])
             self.after(0, self._on_success)
 
+        except InterruptedError:
+            self.after(0, lambda: self._set_status("Download stopped.", WARN_COLOR))
+            self.after(0, self._restore_download_btn)
+
         except yt_dlp.utils.DownloadError as e:
             msg = str(e)
+            if self._stop_event.is_set():
+                self.after(0, lambda: self._set_status("Download stopped.", WARN_COLOR))
+                self.after(0, self._restore_download_btn)
+                return
             if "ffmpeg" in msg.lower():
-                self.after(0, lambda: self._set_status("⚙  Retrying without merging…", "#ffb74d"))
+                self.after(0, lambda: self._set_status("Retrying (no ffmpeg)…", WARN_COLOR))
                 self._retry_no_ffmpeg(url, save_path)
+                return
             elif "Private video" in msg:
-                self.after(0, lambda: self._set_status("🔒  Video is private.", "#ef5350"))
+                self.after(0, lambda: self._set_status("Video is private.", ERR_COLOR))
             elif "Video unavailable" in msg or "not available" in msg.lower():
-                self.after(0, lambda: self._set_status("❌  Video unavailable in your region.", "#ef5350"))
+                self.after(0, lambda: self._set_status("Video unavailable in your region.", ERR_COLOR))
             elif "Sign in" in msg or "age" in msg.lower():
-                self.after(0, lambda: self._set_status("🔞  Age-restricted video – cannot download.", "#ef5350"))
+                self.after(0, lambda: self._set_status("Age-restricted — cannot download.", ERR_COLOR))
             else:
-                self.after(0, lambda: self._set_status(f"❌  {msg[:120]}", "#ef5350"))
-            self.after(0, self._re_enable)
+                self.after(0, lambda m=msg: self._set_status(m[:120], ERR_COLOR))
+            self.after(0, self._restore_download_btn)
 
         except ValueError as e:
-            self.after(0, lambda: self._set_status(f"⚠  {e}", "#ffb74d"))
-            self.after(0, self._re_enable)
+            self.after(0, lambda: self._set_status(str(e), WARN_COLOR))
+            self.after(0, self._restore_download_btn)
 
         except PermissionError:
-            self.after(0, lambda: self._set_status("🚫  Permission denied. Choose a different folder.", "#ef5350"))
-            self.after(0, self._re_enable)
+            self.after(0, lambda: self._set_status("Permission denied. Choose a different folder.", ERR_COLOR))
+            self.after(0, self._restore_download_btn)
 
         except OSError as e:
-            self.after(0, lambda: self._set_status(f"💾  Disk error: {e}", "#ef5350"))
-            self.after(0, self._re_enable)
+            self.after(0, lambda: self._set_status(f"Disk error: {e}", ERR_COLOR))
+            self.after(0, self._restore_download_btn)
 
         except Exception as e:
             traceback.print_exc()
-            self.after(0, lambda: self._set_status(f"❌  Unexpected error: {e}", "#ef5350"))
-            self.after(0, self._re_enable)
+            self.after(0, lambda: self._set_status(f"Unexpected error: {e}", ERR_COLOR))
+            self.after(0, self._restore_download_btn)
 
     def _retry_no_ffmpeg(self, url: str, save_path: Path):
         ydl_opts = {
@@ -257,47 +307,61 @@ class YTDownloader(ctk.CTk):
             "noplaylist": True,
         }
         try:
+            if self._stop_event.is_set():
+                raise InterruptedError()
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
             self.after(0, self._on_success)
+        except InterruptedError:
+            self.after(0, lambda: self._set_status("Download stopped.", WARN_COLOR))
+            self.after(0, self._restore_download_btn)
         except Exception as e:
             traceback.print_exc()
-            self.after(0, lambda: self._set_status(f"❌  {e}", "#ef5350"))
-        finally:
-            self.after(0, self._re_enable)
+            self.after(0, lambda: self._set_status(f"Error: {e}", ERR_COLOR))
+            self.after(0, self._restore_download_btn)
 
     def _progress_hook(self, d: dict):
+        if self._stop_event.is_set():
+            raise InterruptedError("Stopped by user.")
+
         status = d.get("status", "")
         if status == "downloading":
             total = d.get("total_bytes") or d.get("total_bytes_estimate", 0)
             done  = d.get("downloaded_bytes", 0)
             speed = d.get("speed") or 0
             if total:
-                pct = done / total
+                pct      = done / total
                 speed_mb = speed / 1_048_576
-                eta = d.get("eta") or 0
-                label = f"Downloading… {pct:.0%}  •  {speed_mb:.1f} MB/s  •  ETA {eta}s"
+                eta      = d.get("eta") or 0
+                label    = f"Downloading  {pct:.0%}   {speed_mb:.1f} MB/s   ETA {eta}s"
                 self.after(0, lambda p=pct, l=label: (
                     self.progress.set(p),
-                    self._set_status(l, "#4fc3f7"),
+                    self._set_status(l, INFO_COLOR),
                 ))
         elif status == "finished":
             self.after(0, lambda: (
                 self.progress.set(1),
-                self._set_status("Merging / finalizing file…", "#aed6f1"),
+                self._set_status("Finalizing…", TEXT_SUB),
             ))
 
-    def _set_status(self, text: str, color: str = "#6a6a8a"):
+    def _set_status(self, text: str, color: str = TEXT_HINT):
         self.status_label.configure(text=text, text_color=color)
 
     def _on_success(self):
         self.progress.set(1)
-        self._set_status("✅  Download completed!", "#66bb6a")
-        self._re_enable()
-
-    def _re_enable(self):
-        self.download_button.configure(state="normal")
+        self._set_status("Download completed successfully!", OK_COLOR)
+        self.stop_button.pack_forget()
         self.quality_menu.configure(state="normal")
+        self.download_button.pack(fill="x", pady=(0, 8))
+        self.close_button.pack(fill="x")
+
+    def _restore_download_btn(self):
+        """Called after stop / error: go back to normal Download state."""
+        self.stop_button.pack_forget()
+        self.stop_button.configure(state="normal")
+        self.close_button.pack_forget()
+        self.quality_menu.configure(state="normal")
+        self.download_button.pack(fill="x")
 
 
 if __name__ == "__main__":
