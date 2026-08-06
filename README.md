@@ -113,7 +113,7 @@ python main.py
 ## Quality Notes
 
 | Preset | What you get | ffmpeg needed? |
-|--------|-------------|----------------|
+|--------|-------------|---------------- |
 | Best Quality (MP4) | Highest resolution single-file MP4 available | ❌ No |
 | 720p / 480p / 360p | Pre-merged progressive MP4 at that height | ❌ No |
 | Audio Only | Best available audio stream (m4a or webm) | ❌ No |
