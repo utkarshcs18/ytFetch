@@ -11,12 +11,13 @@ ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("blue")
 
 FORMAT_OPTIONS = {
-    "Best Quality (MP4)": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-    "720p (MP4)":         "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best[height<=720]",
-    "480p (MP4)":         "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480][ext=mp4]/best[height<=480]",
-    "360p (MP4)":         "bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[height<=360][ext=mp4]/best[height<=360]",
-    "Audio Only (MP3)":   "bestaudio/best",
+    "Best Quality (MP4)": "best[ext=mp4]/best[ext=webm]/best",
+    "720p (MP4)":         "best[height<=720][ext=mp4]/best[height<=720]/best",
+    "480p (MP4)":         "best[height<=480][ext=mp4]/best[height<=480]/best",
+    "360p (MP4)":         "best[height<=360][ext=mp4]/best[height<=360]/best",
+    "Audio Only":         "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio",
 }
+
 BG          = "#f5f6fa"       
 CARD        = "#ffffff"       
 HEADER_BG   = "#ffffff"       
@@ -223,145 +224,145 @@ class YTDownloader(ctk.CTk):
         self._set_status("Stopping…", WARN_COLOR)
         self.stop_button.configure(state="disabled")
 
-    def _download_worker(self, url: str, save_path: Path, quality_label: str):
-        fmt = FORMAT_OPTIONS[quality_label]
-        is_audio_only = "Audio Only" in quality_label
+def _download_worker(self, url: str, save_path: Path, quality_label: str):
+    fmt = FORMAT_OPTIONS[quality_label]
+    is_audio_only = quality_label == "Audio Only"
 
-        ydl_opts: dict = {
-            "outtmpl": str(save_path / "%(title)s.%(ext)s"),
-            "progress_hooks": [self._progress_hook],
-            "quiet": True,
-            "no_warnings": True,
-            "noplaylist": True,
-            "format": fmt,
-        }
+    ydl_opts: dict = {
+        "outtmpl": str(save_path / "%(title)s.%(ext)s"),
+        "progress_hooks": [self._progress_hook],
+        "quiet": True,
+        "no_warnings": True,
+        "noplaylist": True,
+        "format": fmt,
+    }
 
-        if is_audio_only:
-            ydl_opts["postprocessors"] = [{
-                "key": "FFmpegExtractAudio",
-                "preferredcodec": "mp3",
-                "preferredquality": "192",
-            }]
+    if is_audio_only:
+        ydl_opts["postprocessors"] = [{
+            "key": "FFmpegExtractAudio",
+            "preferredcodec": "mp3",
+            "preferredquality": "192",
+        }]
 
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=False)
-                if info is None:
-                    raise ValueError("Could not retrieve video information. Check the URL.")
-                if self._stop_event.is_set():
-                    raise InterruptedError("Cancelled by user.")
-                title = info.get("title", "Video")
-                self.after(0, lambda t=title: self._set_status(
-                    f"Downloading: {t[:48]}…", INFO_COLOR))
-                ydl.download([url])
-            self.after(0, self._on_success)
-
-        except InterruptedError:
-            self.after(0, lambda: self._set_status("Download stopped.", WARN_COLOR))
-            self.after(0, self._restore_download_btn)
-
-        except yt_dlp.utils.DownloadError as e:
-            msg = str(e)
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            if info is None:
+                raise ValueError("Could not retrieve video information. Check the URL.")
             if self._stop_event.is_set():
-                self.after(0, lambda: self._set_status("Download stopped.", WARN_COLOR))
-                self.after(0, self._restore_download_btn)
-                return
-            if "ffmpeg" in msg.lower():
-                self.after(0, lambda: self._set_status("Retrying (no ffmpeg)…", WARN_COLOR))
-                self._retry_no_ffmpeg(url, save_path)
-                return
-            elif "Private video" in msg:
-                self.after(0, lambda: self._set_status("Video is private.", ERR_COLOR))
-            elif "Video unavailable" in msg or "not available" in msg.lower():
-                self.after(0, lambda: self._set_status("Video unavailable in your region.", ERR_COLOR))
-            elif "Sign in" in msg or "age" in msg.lower():
-                self.after(0, lambda: self._set_status("Age-restricted — cannot download.", ERR_COLOR))
-            else:
-                self.after(0, lambda m=msg: self._set_status(m[:120], ERR_COLOR))
-            self.after(0, self._restore_download_btn)
+                raise InterruptedError("Cancelled by user.")
+            title = info.get("title", "Video")
+            self.after(0, lambda t=title: self._set_status(
+                f"Downloading: {t[:48]}…", INFO_COLOR))
+            ydl.download([url])
+        self.after(0, self._on_success)
 
-        except ValueError as e:
-            self.after(0, lambda: self._set_status(str(e), WARN_COLOR))
-            self.after(0, self._restore_download_btn)
+    except InterruptedError:
+        self.after(0, lambda: self._set_status("Download stopped.", WARN_COLOR))
+        self.after(0, self._restore_download_btn)
 
-        except PermissionError:
-            self.after(0, lambda: self._set_status("Permission denied. Choose a different folder.", ERR_COLOR))
-            self.after(0, self._restore_download_btn)
-
-        except OSError as e:
-            self.after(0, lambda: self._set_status(f"Disk error: {e}", ERR_COLOR))
-            self.after(0, self._restore_download_btn)
-
-        except Exception as e:
-            traceback.print_exc()
-            self.after(0, lambda: self._set_status(f"Unexpected error: {e}", ERR_COLOR))
-            self.after(0, self._restore_download_btn)
-
-    def _retry_no_ffmpeg(self, url: str, save_path: Path):
-        ydl_opts = {
-            "format": "best[ext=mp4]/best[ext=webm]/best",
-            "outtmpl": str(save_path / "%(title)s.%(ext)s"),
-            "progress_hooks": [self._progress_hook],
-            "quiet": True,
-            "no_warnings": True,
-            "noplaylist": True,
-        }
-        try:
-            if self._stop_event.is_set():
-                raise InterruptedError()
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
-            self.after(0, self._on_success)
-        except InterruptedError:
-            self.after(0, lambda: self._set_status("Download stopped.", WARN_COLOR))
-            self.after(0, self._restore_download_btn)
-        except Exception as e:
-            traceback.print_exc()
-            self.after(0, lambda: self._set_status(f"Error: {e}", ERR_COLOR))
-            self.after(0, self._restore_download_btn)
-
-    def _progress_hook(self, d: dict):
+    except yt_dlp.utils.DownloadError as e:
+        msg = str(e)
         if self._stop_event.is_set():
-            raise InterruptedError("Stopped by user.")
+            self.after(0, lambda: self._set_status("Download stopped.", WARN_COLOR))
+            self.after(0, self._restore_download_btn)
+            return
+        if "ffmpeg" in msg.lower():
+            self.after(0, lambda: self._set_status("Retrying (no ffmpeg)…", WARN_COLOR))
+            self._retry_no_ffmpeg(url, save_path)
+            return
+        elif "Private video" in msg:
+            self.after(0, lambda: self._set_status("Video is private.", ERR_COLOR))
+        elif "Video unavailable" in msg or "not available" in msg.lower():
+            self.after(0, lambda: self._set_status("Video unavailable in your region.", ERR_COLOR))
+        elif "Sign in" in msg or "age" in msg.lower():
+            self.after(0, lambda: self._set_status("Age-restricted — cannot download.", ERR_COLOR))
+        else:
+            self.after(0, lambda m=msg: self._set_status(m[:120], ERR_COLOR))
+        self.after(0, self._restore_download_btn)
 
-        status = d.get("status", "")
-        if status == "downloading":
-            total = d.get("total_bytes") or d.get("total_bytes_estimate", 0)
-            done  = d.get("downloaded_bytes", 0)
-            speed = d.get("speed") or 0
-            if total:
-                pct      = done / total
-                speed_mb = speed / 1_048_576
-                eta      = d.get("eta") or 0
-                label    = f"Downloading  {pct:.0%}   {speed_mb:.1f} MB/s   ETA {eta}s"
-                self.after(0, lambda p=pct, l=label: (
-                    self.progress.set(p),
-                    self._set_status(l, INFO_COLOR),
-                ))
-        elif status == "finished":
-            self.after(0, lambda: (
-                self.progress.set(1),
-                self._set_status("Finalizing…", TEXT_SUB),
+    except ValueError as e:
+        self.after(0, lambda: self._set_status(str(e), WARN_COLOR))
+        self.after(0, self._restore_download_btn)
+
+    except PermissionError:
+        self.after(0, lambda: self._set_status("Permission denied. Choose a different folder.", ERR_COLOR))
+        self.after(0, self._restore_download_btn)
+
+    except OSError as e:
+        self.after(0, lambda: self._set_status(f"Disk error: {e}", ERR_COLOR))
+        self.after(0, self._restore_download_btn)
+
+    except Exception as e:
+        traceback.print_exc()
+        self.after(0, lambda: self._set_status(f"Unexpected error: {e}", ERR_COLOR))
+        self.after(0, self._restore_download_btn)
+
+def _retry_no_ffmpeg(self, url: str, save_path: Path):
+    ydl_opts = {
+        "format": "best[ext=mp4]/best[ext=webm]/best",
+        "outtmpl": str(save_path / "%(title)s.%(ext)s"),
+        "progress_hooks": [self._progress_hook],
+        "quiet": True,
+        "no_warnings": True,
+        "noplaylist": True,
+    }
+    try:
+        if self._stop_event.is_set():
+            raise InterruptedError()
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+        self.after(0, self._on_success)
+    except InterruptedError:
+        self.after(0, lambda: self._set_status("Download stopped.", WARN_COLOR))
+        self.after(0, self._restore_download_btn)
+    except Exception as e:
+        traceback.print_exc()
+        self.after(0, lambda: self._set_status(f"Error: {e}", ERR_COLOR))
+        self.after(0, self._restore_download_btn)
+
+def _progress_hook(self, d: dict):
+    if self._stop_event.is_set():
+        raise InterruptedError("Stopped by user.")
+
+    status = d.get("status", "")
+    if status == "downloading":
+        total = d.get("total_bytes") or d.get("total_bytes_estimate", 0)
+        done  = d.get("downloaded_bytes", 0)
+        speed = d.get("speed") or 0
+        if total:
+            pct      = done / total
+            speed_mb = speed / 1_048_576
+            eta      = d.get("eta") or 0
+            label    = f"Downloading  {pct:.0%}   {speed_mb:.1f} MB/s   ETA {eta}s"
+            self.after(0, lambda p=pct, l=label: (
+                self.progress.set(p),
+                self._set_status(l, INFO_COLOR),
             ))
+    elif status == "finished":
+        self.after(0, lambda: (
+            self.progress.set(1),
+            self._set_status("Finalizing…", TEXT_SUB),
+        ))
 
-    def _set_status(self, text: str, color: str = TEXT_HINT):
-        self.status_label.configure(text=text, text_color=color)
+def _set_status(self, text: str, color: str = TEXT_HINT):
+    self.status_label.configure(text=text, text_color=color)
 
-    def _on_success(self):
-        self.progress.set(1)
-        self._set_status("Download completed successfully!", OK_COLOR)
-        self.stop_button.pack_forget()
-        self.quality_menu.configure(state="normal")
-        self.download_button.pack(fill="x", pady=(0, 8))
-        self.close_button.pack(fill="x")
+def _on_success(self):
+    self.progress.set(1)
+    self._set_status("Download completed successfully!", OK_COLOR)
+    self.stop_button.pack_forget()
+    self.quality_menu.configure(state="normal")
+    self.download_button.pack(fill="x", pady=(0, 8))
+    self.close_button.pack(fill="x")
 
-    def _restore_download_btn(self):
-        """Called after stop / error: go back to normal Download state."""
-        self.stop_button.pack_forget()
-        self.stop_button.configure(state="normal")
-        self.close_button.pack_forget()
-        self.quality_menu.configure(state="normal")
-        self.download_button.pack(fill="x")
+def _restore_download_btn(self):
+    """Called after stop / error: go back to normal Download state."""
+    self.stop_button.pack_forget()
+    self.stop_button.configure(state="normal")
+    self.close_button.pack_forget()
+    self.quality_menu.configure(state="normal")
+    self.download_button.pack(fill="x")
 
 
 if __name__ == "__main__":
