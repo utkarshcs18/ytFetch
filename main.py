@@ -177,52 +177,52 @@ class YTDownloader(ctk.CTk):
             command=self.destroy,
         )
 
-    def select_folder(self):
-        folder = filedialog.askdirectory()
-        if folder:
-            self.folder_path = Path(folder)
-            display = str(self.folder_path)
-            if len(display) > 56:
-                display = "…" + display[-53:]
-            self.folder_label.configure(text=display, text_color=TEXT_MAIN)
+def select_folder(self):
+    folder = filedialog.askdirectory()
+    if folder:
+        self.folder_path = Path(folder)
+        display = str(self.folder_path)
+        if len(display) > 56:
+            display = "…" + display[-53:]
+        self.folder_label.configure(text=display, text_color=TEXT_MAIN)
 
-    def start_download(self):
-        url = self.url_entry.get().strip()
-        if not url:
-            self._set_status("Please enter a YouTube URL.", WARN_COLOR)
-            return
-        if not url.startswith("http"):
-            self._set_status("URL must start with http:// or https://", WARN_COLOR)
-            return
-        if not self.folder_path:
-            self._set_status("Please select a download folder.", WARN_COLOR)
-            return
-        if not self.folder_path.exists():
-            self._set_status("Selected folder no longer exists.", WARN_COLOR)
-            return
+def start_download(self):
+    url = self.url_entry.get().strip()
+    if not url:
+        self._set_status("Please enter a YouTube URL.", WARN_COLOR)
+        return
+    if not url.startswith("http"):
+        self._set_status("URL must start with http:// or https://", WARN_COLOR)
+        return
+    if not self.folder_path:
+        self._set_status("Please select a download folder.", WARN_COLOR)
+        return
+    if not self.folder_path.exists():
+        self._set_status("Selected folder no longer exists.", WARN_COLOR)
+        return
 
-        self._stop_event.clear()
+    self._stop_event.clear()
 
-        self.download_button.pack_forget()
-        self.close_button.pack_forget()
-        self.stop_button.pack(fill="x")
+    self.download_button.pack_forget()
+    self.close_button.pack_forget()
+    self.stop_button.pack(fill="x")
 
-        self.quality_menu.configure(state="disabled")
-        self.progress.set(0)
-        self._set_status("Starting…", INFO_COLOR)
+    self.quality_menu.configure(state="disabled")
+    self.progress.set(0)
+    self._set_status("Starting…", INFO_COLOR)
 
-        self._download_thread = threading.Thread(
-            target=self._download_worker,
-            args=(url, self.folder_path, self.quality_var.get()),
-            daemon=True,
-        )
-        self._download_thread.start()
+    self._download_thread = threading.Thread(
+        target=self._download_worker,
+        args=(url, self.folder_path, self.quality_var.get()),
+        daemon=True,
+    )
+    self._download_thread.start()
 
-    def stop_download(self):
-        """Signal the worker thread to abort."""
-        self._stop_event.set()
-        self._set_status("Stopping…", WARN_COLOR)
-        self.stop_button.configure(state="disabled")
+def stop_download(self):
+    """Signal the worker thread to abort."""
+    self._stop_event.set()
+    self._set_status("Stopping…", WARN_COLOR)
+    self.stop_button.configure(state="disabled")
 
 def _download_worker(self, url: str, save_path: Path, quality_label: str):
     fmt = FORMAT_OPTIONS[quality_label]
