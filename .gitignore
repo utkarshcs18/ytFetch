@@ -1,19 +1,28 @@
-# Secret environments
-.env
-
-# Text files
-*.txt
-
-# Python cache and compiled files
+# Python 
 __pycache__/
 *.py[cod]
-*$py.class
+*.pyc
 
-# Virtual environments
-.venv
+# Virtual Environments 
+.venv/
 venv/
 env/
-ENV/
 
-# Editor directories
+# Environment 
+.env
+
+# Downloaded media (keep downloads out of the repo) 
+*.mp4
+*.webm
+*.m4a
+*.mp3
+*.part
+*.ytdl
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
 .vscode/
+.idea/
