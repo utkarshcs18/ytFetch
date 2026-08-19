@@ -40,7 +40,6 @@ WARN_C    = "#d97706"
 ERR_C     = "#dc2626"
 INFO_C    = "#2563eb"
 
-
 class YTDownloader(ctk.CTk):
     def __init__(self):
         super().__init__()
